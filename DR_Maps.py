@@ -3,65 +3,101 @@ import random
 from bs4 import BeautifulSoup
 from urllib.request import urlopen
 import requests
-from PIL import Image
 import io
 import cv2
+import PySimpleGUI as sg
+from PIL import Image
+from PIL import ImageTk
 
-
-
-#rand1 = random.randint(0,9999)
-#rand2 = random.randint(0,9999)
-#url = f"https://www.davidrumsey.com/luna/servlet/detail/RUMSEY~8~1~34{rand1}~9010{rand2}"
-#print(url)
-#url = "https://www.davidrumsey.com/luna/servlet/detail/RUMSEY~8~1~340612
-#~90108865"
-
-while True:
+def get_map(show = False):
     searching = True
     while searching == True:
         url = "http://www.davidrumsey.com/luna/servlet/as/fetchMediaSearch?&sort=Pub_List_No_InitialSort%2CPub_Date%2CPub_List_No%2CSeries_No&lc=RUMSEY%7E8%7E1&fullData=true&bs=25&random=true&os=0&callback=updateQueue"
         page = urlopen(url)
         html_bytes = page.read()
         html = html_bytes.decode("utf-8")
-        #print(html)
+
         if "David Rumsey Historical Map Collection" in html:
-            if html.count("Atlas map") > 0:
+            if html.count(" map ") > 0:
                 jpg_index = html.find('.jpg')
-                #print()
+
                 image_url = html[jpg_index-100:jpg_index].split('"')[-1] + ".jpg"
+
                 if "RUMSEY~8~1" in image_url:
                     searching = False
-    print("map count:", html.count("Atlas map"))
+
     image_url = html[jpg_index-100:jpg_index].split('"')[-1] + ".jpg"
     print(image_url)
     date_index = html.find('pub_date')
-    print(date_index)
+
     date_line = html[date_index:date_index+20]
     date = int(date_line[-7:-3])
-    print(date)
+
 
     img_data = requests.get(image_url).content
 
-    print("got img data")
+
     img = Image.open(io.BytesIO(img_data))
     img = img.convert('RGB')
-    print("Image in rgb")
-    cv2.namedWindow("map", cv2.WINDOW_NORMAL)        # Create window with freedom of dimensions
-    cv2.resizeWindow("map", 720, 540) 
-    cv2.imshow('map',np.array(img))
-    cv2.waitKey(0)
+    img = img.resize((600,600))
+    if show == True:
+        cv2.namedWindow("map", cv2.WINDOW_NORMAL)        # Create window with freedom of dimensions
+        cv2.resizeWindow("map", 720, 540) 
+        cv2.imshow('map',np.array(img))
+        cv2.waitKey(0)
+    return(img,date)
 
-answer = int(input("What year is this from?"))
-if answer == date:
-    print("You did it!")
-else:
-    print(f"You absolute idiot how could you not know it was {date}")
-    
-"""with open('image_name.jpg', 'wb') as handler:
-    handler.write(img_data)"""
+def local_app():
 
+    #load_img = Image.open("loading.png")
+    #load_img = ImageTk.PhotoImage(image = load_img)
+    window = sg.Window(title="Map Dater", layout = [[sg.Text("What year is this from?",size = (20,1),font = ("Arial",18))],
+                                                      [sg.Button('NewMap',size = (10,2))],
+                                                      [sg.Image(size = (600,600),key = "-MAP-")],
+                                                       [sg.Text("Year:"),sg.InputText()],
+                                                      [sg.Button('Submit',size = (10,2)),sg.Text('Actual Date:'),sg.Text('',size = (20,1),font = ("Arial",18),key = '-DATE-')],
+                                                    [sg.Text("Score: ",key = "-SCORE-",size = (20,1),font = ("Arial,24"))]])
 
-#soup = BeautifulSoup(html_bytes, 'html.parser')
+    n = 0
+    score = 0
+    while True:
+        n += 1
+        event,values = window.read()
+        window['-SCORE-'].update(f"score: {score}")
+        
+        print(event,values)
+        if event == sg.WIN_CLOSED:
+                break
+        elif event == "NewMap":
+            #load_img = ImageTk.PhotoImage(image = load_img)
+            #window['-MAP-'].update(data=load_img)
+            img,date = get_map()
+            #img = Image.fromarray(img,'RGB')
+            image = ImageTk.PhotoImage(image = img)
+            window['-MAP-'].update(data=image)
+            #window['-DATE-'].update(str(date))
+            
+        elif event == "Submit":
+            guess = int(values[0])
+            add = 100 - np.abs(date - guess)
+            window['-DATE-'].update(str(date))
+            print(f'Date: {date}, Guess: {guess}, diff: {np.abs(date - guess)}')
+            if add >= 0:
+                score += add
 
-#print(soup.prettify())
-
+                
+            else:
+                add = 0
+                score += add
+            print("score: ",score)
+            window['-SCORE-'].update(str(score))
+            #load_img = ImageTk.PhotoImage(image = load_img)
+            #window['-MAP-'].update(data=load_img)
+            img,date = get_map()
+            #img = Image.fromarray(img,'RGB')
+            image = ImageTk.PhotoImage(image = img)
+            window['-MAP-'].update(data=image)
+            
+        
+    window.close()
+local_app()
